@@ -324,7 +324,7 @@
     /* On-screen controls */
     .on-screen-controls {
       margin-top: 14px;
-      display: none; /* по умолчанию скрыты, будут только на телефоне */
+      display: none;
       justify-content: center;
       align-items: center;
       gap: 10px;
@@ -332,9 +332,9 @@
 
     .dpad {
       display: grid;
-      grid-template-columns: 50px 50px 50px;
-      grid-template-rows: 50px 50px 50px;
-      gap: 8px;
+      grid-template-columns: 56px 56px 56px;
+      grid-template-rows: 56px 56px 56px;
+      gap: 10px;
     }
 
     .dpad-btn {
@@ -384,11 +384,13 @@
     body.mobile {
       padding: 12px;
       overflow-y: auto;
+      align-items: flex-start; /* чтобы блок был выше, а не строго по центру */
+      justify-content: center;
     }
 
     body.mobile .wrapper {
       width: 100%;
-      max-width: 420px;
+      max-width: 480px;
     }
 
     body.mobile .game-shell {
@@ -412,11 +414,6 @@
         box-shadow:
           0 14px 40px rgba(0,0,0,0.85),
           0 0 30px rgba(0,255,255,0.28);
-      }
-
-      .dpad {
-        grid-template-columns: 56px 56px 56px;
-        grid-template-rows: 56px 56px 56px;
       }
     }
   </style>
@@ -483,12 +480,6 @@
 
 <script>
   // === КЛАССИЧЕСКАЯ ЛОГИКА "ЗМЕЙКИ" КАК В СТАРЫХ NOKIA ===
-  // - движение по клеткам
-  // - нет прохода через стены (ударился — умер)
-  // - нельзя врезаться в себя
-  // - еда увеличивает длину на 1
-  // - без телепортов, ускорений и прочих модификаций
-
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
@@ -501,8 +492,8 @@
 
   const touchControls = document.getElementById('touchControls');
 
-  const GRID_COUNT = 20; // классическая сетка 20x20
-  let CELL_SIZE = 20;    // будет пересчитываться под размер канваса
+  const GRID_COUNT = 20; // сетка 20x20 как раньше
+  let CELL_SIZE = 20;
   const TICK_MS = 120;
 
   let snake;
@@ -510,14 +501,13 @@
   let nextDirection;
   let food;
   let score;
-  let bestScore = Number(localStorage.getItem('snake_best_liquid_v2')) || 0;
+  let bestScore = Number(localStorage.getItem('snake_best_liquid_v3')) || 0;
   let timerId = null;
   let gameRunning = false;
   let waitingFirstMove = true;
 
   bestEl.textContent = bestScore;
 
-  // Детект телефона (упрощённо: тач + вертикальный экран)
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
   function updateLayout() {
@@ -528,10 +518,11 @@
 
     let size;
     if (mobileMode) {
-      size = Math.min(window.innerWidth - 40, 380);
-      if (size < 260) size = 260; // минимум чтобы не превратилось в пиксели
+      // почти вся ширина экрана, но не выходим за высоту
+      size = Math.min(window.innerWidth - 24, window.innerHeight * 0.7);
+      if (size < 260) size = 260;
     } else {
-      size = 400;
+      size = 400; // на ПК как раньше
     }
 
     canvas.width = size;
@@ -539,9 +530,8 @@
 
     CELL_SIZE = Math.floor(size / GRID_COUNT);
 
-    // подправим сетку (grid-overlay и game-glass-overlay автоматически растягиваются)
     if (!gameRunning) {
-      draw(); // перерисовать стартовый экран
+      draw();
     }
   }
 
@@ -579,7 +569,7 @@
     startBtn.textContent = 'Restart';
     if (score > bestScore) {
       bestScore = score;
-      localStorage.setItem('snake_best_liquid_v2', bestScore);
+      localStorage.setItem('snake_best_liquid_v3', bestScore);
       bestEl.textContent = bestScore;
     }
   }
@@ -609,7 +599,6 @@
   }
 
   function tick() {
-    // направление фиксируется на этот шаг
     direction = nextDirection;
 
     const head = snake[snake.length - 1];
@@ -618,7 +607,6 @@
       y: head.y + direction.y
     };
 
-    // столкновение со стеной
     if (
       newHead.x < 0 || newHead.x >= GRID_COUNT ||
       newHead.y < 0 || newHead.y >= GRID_COUNT
@@ -627,7 +615,6 @@
       return;
     }
 
-    // столкновение с собой
     if (snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
       gameOver();
       return;
@@ -635,7 +622,6 @@
 
     snake.push(newHead);
 
-    // еда
     if (newHead.x === food.x && newHead.y === food.y) {
       score++;
       scoreEl.textContent = score;
@@ -650,7 +636,6 @@
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // фон поля
     const grad = ctx.createRadialGradient(
       canvas.width / 2, canvas.height / 2, 10,
       canvas.width / 2, canvas.height / 2, canvas.width * 0.9
@@ -670,21 +655,18 @@
       const px = segment.x * CELL_SIZE;
       const py = segment.y * CELL_SIZE;
 
-      // внешний жидко-стеклянный прямоугольник
       const segmentGrad = ctx.createLinearGradient(px, py, px + CELL_SIZE, py + CELL_SIZE);
       segmentGrad.addColorStop(0, 'rgba(255,255,255,0.22)');
       segmentGrad.addColorStop(1, 'rgba(0,255,255,0.12)');
       ctx.fillStyle = segmentGrad;
       ctx.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
 
-      // внутренний слой
       const innerGrad = ctx.createLinearGradient(px, py, px, py + CELL_SIZE);
       innerGrad.addColorStop(0, 'rgba(4,10,30,0.9)');
       innerGrad.addColorStop(1, 'rgba(3,5,12,0.9)');
       ctx.fillStyle = innerGrad;
       ctx.fillRect(px + 4, py + 4, CELL_SIZE - 8, CELL_SIZE - 8);
 
-      // неоновый контур
       ctx.strokeStyle = 'rgba(0,255,255,0.85)';
       ctx.lineWidth = 2;
       ctx.shadowColor = 'rgba(0,255,255,0.9)';
@@ -692,7 +674,6 @@
       ctx.strokeRect(px + 3, py + 3, CELL_SIZE - 6, CELL_SIZE - 6);
       ctx.shadowBlur = 0;
 
-      // голова
       if (i === snake.length - 1) {
         ctx.fillStyle = '#0ff';
         const cx = px + CELL_SIZE / 2;
@@ -732,7 +713,7 @@
     ctx.fill();
   }
 
-  // === Управление с клавы ===
+  // ===== Управление с клавы =====
   window.addEventListener('keydown', (e) => {
     const key = e.key;
 
@@ -777,7 +758,7 @@
     }
   }
 
-  // === Тач-управление (Liquid Glass D-Pad) ===
+  // ===== Тач-управление (Liquid Glass D-Pad) =====
   touchControls.addEventListener('touchstart', (e) => {
     const target = e.target.closest('.dpad-btn');
     if (!target) return;
@@ -823,7 +804,6 @@
     }
   });
 
-  // Первичная настройка и реакция на поворот экрана
   window.addEventListener('resize', () => {
     updateLayout();
   });
@@ -833,4 +813,3 @@
 </script>
 </body>
 </html>
-
